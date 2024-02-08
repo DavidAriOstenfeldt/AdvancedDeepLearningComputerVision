@@ -107,24 +107,39 @@ def main(model_name='', image_size=(32,32), patch_size=(4,4), channels=3,
                     'weight_decay': weight_decay,
                     'train_duration': 0.0}
     start = time.time()
+
+    train_acc_list = []
+    val_acc_list = []
     for e in range(num_epochs):
+        train_total = 0.0
+        train_correct = 0.0
         print(f'\n epoch {e}')
         model.train()
-        for image, label in tqdm.tqdm(train_iter):
+        train_iterator = tqdm.tqdm(train_iter)
+        for image, label in train_iterator:
             if torch.cuda.is_available():
                 image, label = image.to('cuda'), label.to('cuda')
             opt.zero_grad()
             out = model(image)
             loss = loss_function(out, label)
             loss.backward()
+            train_total += float(image.size(0))
+            train_correct += float((label == out.argmax(dim=1)).sum().item())
             # if the total gradient vector has a length > 1, we clip it back down to 1.
             if gradient_clipping > 0.0:
                 nn.utils.clip_grad_norm_(model.parameters(), gradient_clipping)
             opt.step()
             sch.step()
+            train_acc = train_correct / train_total
+            # train_iterator.set_postfix_str(train_acc)
+            train_iterator.set_description(f'-- {"train"} accuracy {train_acc:.3}')
+
+        train_acc_list.append(train_acc)
         end = time.time()
         model_params['train_duration'] = end - start
+        model_params['train_accuracy'] = train_acc
         total_train_time = end - start
+
         with torch.no_grad():
             model.eval()
             tot, cor= 0.0, 0.0
@@ -135,9 +150,12 @@ def main(model_name='', image_size=(32,32), patch_size=(4,4), channels=3,
                 tot += float(image.size(0))
                 cor += float((label == out).sum().item())
             acc = cor / tot
-            print(f'-- {"validation"} accuracy {acc:.3}')
+            val_acc_list.append(acc)
+            print(f'-- Validation accuracy {acc:.3}')
+            # train_iterator.set_description(f'-- {"validation"} accuracy {acc:.3}')
             if acc > best_acc:
-                best_model, best_acc, best_epoch = save_best_model(model_name, model, e, acc, best_acc, best_epoch, model_params)   
+                best_model, best_acc, best_epoch = save_best_model(model_name, model, e, acc, best_acc, best_epoch, model_params)
+            
     # Test the best model
     for image, label in test_iter:
         best_model.eval()
@@ -147,13 +165,17 @@ def main(model_name='', image_size=(32,32), patch_size=(4,4), channels=3,
         tot += float(image.size(0))
         cor += float((label == out).sum().item())
     acc = cor / tot
-    # Add the test accuracy to the text file
+    print(f'-- Test accuracy: {acc:.3}')
+    
     with open(f'2_VisualTransformers/models/{model_name}_best_model_e{best_epoch+1}.txt', 'a') as f:
-        f.write(f'Test accuracy: {acc}\n')
-    # Add the total training time to the text file
-    with open(f'2_VisualTransformers/models/{model_name}_best_model_e{best_epoch+1}.txt', 'a') as f:
-        f.write(f'Total training time: {total_train_time}\n')
-    return best_model, best_acc, best_epoch
+        # Add the test accuracy to the text file
+        f.write(f'test accuracy: {acc}\n')
+        # Add the total training time to the text file
+        f.write(f'total training time: {total_train_time}\n')
+        # Add the complete training accuracy list to the text file
+        f.write(f'train accuracy list: {train_acc_list}\n')
+        # Add the complete validation accuracy list to the text file
+        f.write(f'val accuracy list: {val_acc_list}\n')
         
 def save_best_model(model_name, model, epoch, acc, best_acc, best_epoch, model_params):
     # Delete the previous best model state dict
@@ -180,11 +202,22 @@ def save_best_model(model_name, model, epoch, acc, best_acc, best_epoch, model_p
 
 
 if __name__ == "__main__":
-    #os.environ["CUDA_VISIBLE_DEVICES"]= str(0)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')  
     print(f"Model will run on {device}")
     set_seed(seed=1)
-    m, _, _ = main(model_name='nh4_nl4', num_epochs=10, num_heads=4, num_layers=4)
+    print('------------------------------------------------------------')
+    print('TRAINING nh4_nl4')
+    main(model_name='nh4_nl4', num_epochs=50, num_heads=4, num_layers=4)
+    print('------------------------------------------------------------')
+    print('TRAINING nh8_nl8')
+    main(model_name='nh8_nl8', num_epochs=50, num_heads=8, num_layers=8)
+    print('------------------------------------------------------------')
+    print('TRAINING nh12_nl12')
+    main(model_name='nh12_nl12', num_epochs=50, num_heads=12, num_layers=12)
+    print('------------------------------------------------------------')
+    print('TRAINING nh12_nl16')
+    main(model_name='nh12_nl16', num_epochs=50, num_heads=12, num_layers=16)
+    print('------------------------------------------------------------')
+    print('TRAINING nh12_nl32')
+    main(model_name='nh12_nl32', num_epochs=50, num_heads=12, num_layers=32)
 
-    # main(model_name='nh8_nl8', num_epochs=20, num_heads=8, num_layers=8)
-    # main(model_name='nh16_nl16', num_epochs=20, num_heads=16, num_layers=16)
