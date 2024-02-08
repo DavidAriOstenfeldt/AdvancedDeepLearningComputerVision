@@ -6,12 +6,14 @@ from torch import nn
 import torch.nn.functional as F
 import tqdm
 import time
+import matplotlib.pyplot as plt
 from torchinfo import summary
 
 import torch
 import torchvision
 import torchvision.transforms as transforms
 from vit import ViT
+from vit_grad_rollout import VITAttentionGradRollout
 
 def set_seed(seed=1):
     random.seed(seed)
@@ -151,6 +153,7 @@ def main(model_name='', image_size=(32,32), patch_size=(4,4), channels=3,
     # Add the total training time to the text file
     with open(f'2_VisualTransformers/models/{model_name}_best_model_e{best_epoch+1}.txt', 'a') as f:
         f.write(f'Total training time: {total_train_time}\n')
+    return best_model, best_acc, best_epoch
         
 def save_best_model(model_name, model, epoch, acc, best_acc, best_epoch, model_params):
     # Delete the previous best model state dict
@@ -175,11 +178,13 @@ def save_best_model(model_name, model, epoch, acc, best_acc, best_epoch, model_p
     print(f'(New Model Saved)')
     return model, best_acc, best_epoch
 
+
 if __name__ == "__main__":
     #os.environ["CUDA_VISIBLE_DEVICES"]= str(0)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')  
     print(f"Model will run on {device}")
     set_seed(seed=1)
-    main(model_name='nh4_nl4', num_epochs=20, num_heads=4, num_layers=4)
-    main(model_name='nh8_nl8', num_epochs=20, num_heads=8, num_layers=8)
-    main(model_name='nh16_nl16', num_epochs=20, num_heads=16, num_layers=16)
+    m, _, _ = main(model_name='nh4_nl4', num_epochs=10, num_heads=4, num_layers=4)
+
+    # main(model_name='nh8_nl8', num_epochs=20, num_heads=8, num_layers=8)
+    # main(model_name='nh16_nl16', num_epochs=20, num_heads=16, num_layers=16)

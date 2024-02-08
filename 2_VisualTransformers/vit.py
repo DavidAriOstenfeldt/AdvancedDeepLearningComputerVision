@@ -30,6 +30,8 @@ class Attention(nn.Module):
         self.v_projeciton  = nn.Linear(embed_dim, embed_dim, bias=False)
         self.o_projection = nn.Linear(embed_dim, embed_dim)
 
+        self.attn_drop = nn.Dropout(0.0, inplace=False)
+
     def forward(self, x):
 
         batch_size, seq_len, embed_dim = x.size()
@@ -45,7 +47,7 @@ class Attention(nn.Module):
 
         attention_logits = torch.matmul(queries, keys.transpose(1, 2))
         attention_logits = attention_logits * self.scale
-        attention = F.softmax(attention_logits, dim=-1)
+        attention = self.attn_drop(F.softmax(attention_logits, dim=-1))
         out = torch.matmul(attention, values)
 
         # Rearragne output
