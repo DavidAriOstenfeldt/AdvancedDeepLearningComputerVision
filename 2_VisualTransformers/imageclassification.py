@@ -151,7 +151,7 @@ def main(model_name='', image_size=(32,32), patch_size=(4,4), channels=3,
                 cor += float((label == out).sum().item())
             acc = cor / tot
             val_acc_list.append(acc)
-            print(f'-- Validation accuracy {acc:.3}')
+            print(f'-- validation accuracy {acc:.3}')
             # train_iterator.set_description(f'-- {"validation"} accuracy {acc:.3}')
             if acc > best_acc:
                 best_model, best_acc, best_epoch = save_best_model(model_name, model, e, acc, best_acc, best_epoch, model_params)
@@ -165,7 +165,7 @@ def main(model_name='', image_size=(32,32), patch_size=(4,4), channels=3,
         tot += float(image.size(0))
         cor += float((label == out).sum().item())
     acc = cor / tot
-    print(f'-- Test accuracy: {acc:.3}')
+    print(f'-- test accuracy: {acc:.3}')
     
     with open(f'2_VisualTransformers/models/{model_name}_best_model_e{best_epoch+1}.txt', 'a') as f:
         # Add the test accuracy to the text file
@@ -182,7 +182,9 @@ def save_best_model(model_name, model, epoch, acc, best_acc, best_epoch, model_p
     if best_acc != 0.0:
         os.remove(f'2_VisualTransformers/models/{model_name}_best_model_e{best_epoch+1}.pth')
         os.remove(f'2_VisualTransformers/models/{model_name}_best_model_e{best_epoch+1}.txt')
+    ##########
     best_epoch = epoch
+    ##########
     best_acc = max(best_acc, acc)
     torch.save(model.state_dict(), f'2_VisualTransformers/models/{model_name}_best_model_e{best_epoch+1}.pth')
     # Save model parameters to a text file
@@ -212,12 +214,12 @@ if __name__ == "__main__":
     print('TRAINING nh8_nl8')
     main(model_name='nh8_nl8', num_epochs=50, num_heads=8, num_layers=8)
     print('------------------------------------------------------------')
-    print('TRAINING nh12_nl12')
-    main(model_name='nh12_nl12', num_epochs=50, num_heads=12, num_layers=12)
-    print('------------------------------------------------------------')
-    print('TRAINING nh12_nl16')
-    main(model_name='nh12_nl16', num_epochs=50, num_heads=12, num_layers=16)
-    print('------------------------------------------------------------')
-    print('TRAINING nh12_nl32')
-    main(model_name='nh12_nl32', num_epochs=50, num_heads=12, num_layers=32)
+    print('TRAINING nh8_nl12')
+    main(model_name='nh8_nl12', num_epochs=50, num_heads=8, num_layers=12)
+    # print('------------------------------------------------------------')
+    # print('TRAINING nh12_nl16')
+    # main(model_name='nh12_nl16', num_epochs=50, num_heads=8, num_layers=16)
+    # print('------------------------------------------------------------')
+    # print('TRAINING nh12_nl32')
+    # main(model_name='nh12_nl32', num_epochs=50, num_heads=8, num_layers=32)
 
