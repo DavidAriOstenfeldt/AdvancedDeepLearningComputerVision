@@ -161,3 +161,9 @@ cython_debug/
 #.idea/
 .data/
 data/
+3_DiffusionQuickStart/models/
+3_DiffusionQuickStart/runs/
+4_diffusionClassifier/runs/
+4_diffusionClassifier/models/
+4_diffusionClassifier/weights/
+dataset/
