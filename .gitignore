@@ -166,4 +166,5 @@ data/
 4_diffusionClassifier/runs/
 4_diffusionClassifier/models/
 4_diffusionClassifier/weights/
+*/weights/
 dataset/
