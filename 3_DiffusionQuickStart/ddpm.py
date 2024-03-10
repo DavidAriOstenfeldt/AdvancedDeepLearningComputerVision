@@ -1,6 +1,7 @@
 import torch
 from tqdm import tqdm
 import logging
+import math
 logging.basicConfig(format="%(asctime)s - %(levelname)s: %(message)s", level=logging.INFO, datefmt="%I:%M:%S")
 
 
@@ -26,10 +27,31 @@ class Diffusion:
 
     def get_betas(self, schedule='linear'):
         if schedule == 'linear':
-            return ... # HINT: use torch.linspace to create a linear schedule from beta_start to beta_end
+            return torch.linspace(self.beta_start, self.beta_end, self.T) # HINT: use torch.linspace to create a linear schedule from beta_start to beta_end
         # add your own (e.g. cosine)
-        else :
-            raise NotImplementedError('Not implemented!')
+        elif schedule == 'cosine':
+            return self.betas_for_alpha_bar(lambda t: math.cos((t + 0.008) / 1.008 * math.pi / 2) ** 2)
+        else:
+            raise NotImplementedError(f"Schedule {schedule} not implemented, use linear or cosine.")
+    
+    
+    def betas_for_alpha_bar(self, alpha_bar, max_beta=0.999):
+        """
+        Create a beta schedule that discretizes the given alpha_t_bar function,
+        which defines the cumulative product of (1-beta) over time from t = [0,1].
+        
+        :param alpha_bar: a lambda that takes an argument t from 0 to 1 and
+                        produces the cumulative product of (1-beta) up to that
+                        part of the diffusion process.
+        :param max_beta: the maximum beta to use; use values lower than 1 to
+                        prevent singularities.
+        """
+        betas = []
+        for i in range(self.T):
+            t1 = i / self.T
+            t2 = (i + 1) / self.T
+            betas.append(min(1 - alpha_bar(t2) / alpha_bar(t1), max_beta))
+        return torch.tensor(betas)
     
 
     def q_sample(self, x, t):
@@ -43,17 +65,18 @@ class Diffusion:
         Should return q(x_t | x_0), noise
         """
         # TASK 2: Implement the forward process
-        sqrt_alpha_bar =  ... # HINT: use torch.sqrt to calculate the sqrt of alphas_bar at timestep t
+        sqrt_alpha_bar =  torch.sqrt(self.alphas_bar[t]) # HINT: use torch.sqrt to calculate the sqrt of alphas_bar at timestep t
         sqrt_alpha_bar = sqrt_alpha_bar[:, None, None, None] # match image dimensions
 
-        sqrt_one_minus_alpha_bar = ... # HINT: calculate the sqrt of 1 - alphas_bar at time step t
+        sqrt_one_minus_alpha_bar = torch.sqrt(1- self.alphas_bar[t]) # HINT: calculate the sqrt of 1 - alphas_bar at time step t
         sqrt_one_minus_alpha_bar = sqrt_one_minus_alpha_bar[:, None, None, None]# match image dimensions
         
-        noise = ... # HINT: sample noise from a normal distribution. It should match the shape of x 
-        assert noise.shape == x.shape, 'Invalid shape of noise'
+        # HINT: sample noise from a normal distribution. It should match the shape of x
+        noise = torch.distributions.Normal(0,1).sample(x.shape).to(self.device)
+        assert noise.shape == x.shape, f'Invalid shape of noise {noise.shape} != {x.shape}'
         
-        x_noised = ... # HINT: Create the noisy version of x. See Eq. 4 in the ddpm paper at page 2
-        return ..., noise
+        x_noised = sqrt_alpha_bar * x + sqrt_one_minus_alpha_bar * noise # HINT: Create the noisy version of x. See Eq. 4 in the ddpm paper at page 2
+        return x_noised, noise
     
 
     def p_mean_std(self, model, x_t, t):
@@ -65,8 +88,8 @@ class Diffusion:
         beta = self.betas[t][:, None, None, None] # match image dimensions
 
         # TASK 3 : Implement the revese process
-        predicted_noise = ... # HINT: use model to predict noise
-        mean = ... # HINT: calculate the mean of the distribution p(x_{t-1} | x_t). See Eq. 11 in the ddpm paper at page 4
+        predicted_noise = model(x_t, t) # HINT: use model to predict noise
+        mean = (1 / torch.sqrt(alpha)) * (x_t - (beta / (torch.sqrt(1 - alpha_bar))) * predicted_noise) # HINT: calculate the mean of the distribution p(x_{t-1} | x_t). See Eq. 11 in the ddpm paper at page 4
         std = torch.sqrt(beta)
 
         return mean, std
@@ -80,9 +103,10 @@ class Diffusion:
         
         # HINT: Having calculate the mean and std of p(x{x_t} | x_t), we sample noise from a normal distribution.
         # see line 3 of the Algorithm 2 (Sampling) at page 4 of the ddpm paper.
-        noise = ...
+        noise = torch.distributions.Normal(0,1).sample(x_t.shape).to(self.device) if torch.all(torch.gt(t, torch.ones_like(t)), dim=0)else torch.zeros_like(x_t).to(self.device)
 
-        x_t_prev = ... # Calculate x_{t-1}, see line 4 of the Algorithm 2 (Sampling) at page 4 of the ddpm paper.
+        # Calculate x_{t-1}, see line 4 of the Algorithm 2 (Sampling) at page 4 of the ddpm paper.
+        x_t_prev = mean + std * noise
         return x_t_prev
 
 
